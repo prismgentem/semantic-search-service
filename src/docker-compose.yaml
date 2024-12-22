@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333" # Экспонирование порта для взаимодействия с Qdrant
+    environment:
+      QDRANT__STORAGE__LOCATION: "/qdrant/storage" # Указание пути для хранения данных
+    volumes:
+      - qdrant_data:/qdrant/storage # Подключение тома для хранения данных
+
+volumes:
+  qdrant_data:
+    driver: local
