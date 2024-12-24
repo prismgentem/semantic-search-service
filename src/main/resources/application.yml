@@ -1,3 +1,16 @@
 spring:
   application:
     name: semantic-search-service
+  servlet:
+    multipart:
+      enabled: true
+
+qdrant:
+  host: ${QDRANT_HOST:localhost}
+  port: ${QDRANT_PORT:6334}
+proxy-api:
+  url: https://api.proxyapi.ru/openai/v1/embeddings
+  key: ${PROXY_API_KEY}
+  model: text-embedding-3-small
+server:
+  port: 8081

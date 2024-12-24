@@ -1,12 +1,12 @@
 package org.example.semanticsearchservice.service;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import org.example.semanticsearchservice.model.RealEstateAd;
-import org.example.semanticsearchservice.util.SimpleVectorizer;
+import org.example.semanticsearchservice.model.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -16,46 +16,70 @@ public class RealEstateAdService {
     private final QdrantService qdrantService;
     private final CsvReaderService csvReaderService;
 
-    // Метод с аннотацией @PostConstruct для выполнения инициализационной логики
-    @PostConstruct
-    @SneakyThrows
-    public void init(){
-        // Имя коллекции
-        String collectionName = "real_estate_ads";
+    public void initData() {
+        ClassLoader classLoader = getClass().getClassLoader();
+        InputStream inputStream = classLoader.getResourceAsStream("data.csv");
 
-        // Проверяем, существует ли коллекция
-        if (!qdrantService.collectionExists(collectionName)) {
-            // Если коллекции нет, создаем её
-            qdrantService.createCollection(collectionName);
+        if (inputStream == null) {
+            throw new RuntimeException("CSV file not found in resources.");
+        }
 
-            // Получаем все объявления из CSV (файл в папке ресурсов)
-            ClassLoader classLoader = getClass().getClassLoader();
-            InputStream inputStream = classLoader.getResourceAsStream("real_estate_ads.csv");
+        List<RealEstateAd> ads = csvReaderService.readCsv(inputStream);
 
-            if (inputStream == null) {
-                throw new RuntimeException("CSV file not found in resources.");
-            }
-
-            List<RealEstateAd> ads = csvReaderService.readCsv(inputStream);
-
-            // Загружаем векторы объявлений в Qdrant
-            qdrantService.addVectors(collectionName, ads);
+        for (RealEstateAd ad : ads) {
+            qdrantService.saveRealEstateAd(ad);
         }
     }
 
     @SneakyThrows
-    public List<RealEstateAd> search(String searchRequest) {
-        // Векторизация поискового запроса
-        List<Float> queryVector = SimpleVectorizer.vectorize(searchRequest);
+    public CreateDatabaseResponse processCsvAndSave(MultipartFile file, String databaseName) {
+        try (InputStream inputStream = file.getInputStream()) {
+            List<RealEstateAd> ads = csvReaderService.readCsv(inputStream);
+            for (RealEstateAd ad : ads) {
+                qdrantService.saveRealEstateAd(ad, databaseName);
+            }
+            return new CreateDatabaseResponse(databaseName, ads.size(), true);
+        } catch (IOException e) {
+            throw new RuntimeException("Error processing CSV file", e);
+        }
+    }
 
-        // Имя коллекции
-        String collectionName = "real_estate_ads";
+    @SneakyThrows
+    public CreateDatabaseResponse createDatabase(String databaseName) {
+        qdrantService.createCollection(databaseName);
+        return new CreateDatabaseResponse(databaseName, 0, true);
+    }
 
-        // Выполняем поиск похожих объявлений в Qdrant
-        qdrantService.searchVectors(collectionName, queryVector);
+    @SneakyThrows
+    public CreateDatabaseResponse saveDataFromCsv(MultipartFile file, String databaseName) {
+        try (InputStream inputStream = file.getInputStream()) {
+            List<RealEstateAd> ads = csvReaderService.readCsv(inputStream);
+            for (RealEstateAd ad : ads) {
+                qdrantService.saveRealEstateAd(ad, databaseName);
+            }
+            return new CreateDatabaseResponse(databaseName, ads.size(), true);
+        } catch (IOException e) {
+            throw new RuntimeException("Error processing CSV file", e);
+        }
+    }
 
-        // Пока что возвращаем все объявления для примера
-        return null; // Можете добавить логику для возврата похожих объявлений
+    @SneakyThrows
+    public UploadCsvResponse saveDataFromCsv(MultipartFile file, UploadCsvRequest request) {
+        var databaseName = request.getDatabaseName();
+        try (InputStream inputStream = file.getInputStream()) {
+            List<RealEstateAd> ads = csvReaderService.readCsv(inputStream);
+            for (int i = 0; i < request.getSavedObjectsCount(); i++) {
+                qdrantService.saveRealEstateAd(ads.get(i), databaseName);
+            }
+            return new UploadCsvResponse(databaseName, request.getSavedObjectsCount());
+        } catch (IOException e) {
+            throw new RuntimeException("Error processing CSV file", e);
+        }
+    }
+
+    @SneakyThrows
+    public List<SearchResponse> search(String databaseName, String searchRequest, int topN) {
+        return qdrantService.searchSimilarAds(databaseName, searchRequest, topN);
     }
 }
 

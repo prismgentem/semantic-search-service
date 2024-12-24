@@ -17,27 +17,26 @@ public class CsvReaderService {
     public List<RealEstateAd> readCsv(InputStream inputStream) {
         List<RealEstateAd> ads = new ArrayList<>();
 
-        // Используем InputStreamReader для чтения из InputStream
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             String line;
-            reader.readLine(); // Пропускаем заголовок CSV файла (если он есть)
+            reader.readLine();
             while ((line = reader.readLine()) != null) {
                 String[] columns = line.split(";");
-
-                // Создаем новый объект RealEstateAd
                 RealEstateAd ad = new RealEstateAd();
-
-                // Заполняем поля объекта из соответствующих столбцов CSV
                 ad.setTitle(columns[0]);
+                ad.setPrice(columns[1]);
+                ad.setDate(columns[2]);
+                ad.setPhone(columns[3]);
                 ad.setRegion(columns[7]);
-                ad.setCity(columns[8]);  // Здесь можно также изменить логику, если город в другом столбце
+                ad.setCity(columns[8]);
                 ad.setAddress(columns[10]);
                 ad.setDescription(columns[11]);
+                ad.setAdType(columns[12]);
                 ad.setCategory1(columns[13]);
                 ad.setCategory2(columns[14]);
+                ad.setSource(columns[16]);
                 ad.setAdditionalParams(columns[20]);
-
-                // Добавляем объект в список
+                ad.setUrl(columns[21]);
                 ads.add(ad);
             }
         }
